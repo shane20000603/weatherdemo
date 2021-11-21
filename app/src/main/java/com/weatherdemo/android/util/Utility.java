@@ -2,9 +2,11 @@ package com.weatherdemo.android.util;
 
 import android.text.TextUtils;
 
+import com.google.gson.Gson;
 import com.weatherdemo.android.db.City;
 import com.weatherdemo.android.db.Country;
 import com.weatherdemo.android.db.Province;
+import com.weatherdemo.android.gson.Weather;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -74,10 +76,25 @@ public class Utility {
                     country.setCityId(cityId);
                     country.save();
                 }
+                return true;
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
         return false;
+    }
+
+    /**
+     * parse the return json into weather object
+     */
+    public static Weather handleWeatherResponse(String response){
+        try {
+            JSONObject jsonObject = new JSONObject(response);
+            String weatherContent = jsonObject.toString();
+            return new Gson().fromJson(weatherContent,Weather.class);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }

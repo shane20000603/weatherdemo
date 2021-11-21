@@ -1,6 +1,7 @@
 package com.weatherdemo.android;
 
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -81,6 +82,12 @@ public class chooseAreaFragment extends Fragment {
                 } else if (currentLevel == LEVEL_CITY) {
                     selectedCity = cityList.get(position);
                     queryCountries();
+                } else if (currentLevel == LEVEL_COUNTRY){
+                    String weatherId = countryList.get(position).getWeatherId();
+                    Intent intent = new Intent(getActivity(),WeatherActivity.class);
+                    intent.putExtra("weather_id",weatherId.substring(2));
+                    startActivity(intent);
+                    getActivity().finish();
                 }
             }
         });
@@ -132,6 +139,7 @@ public class chooseAreaFragment extends Fragment {
         } else {
             int provinceCode = selectedProvince.getProvinceCode();
             String address = "http://guolin.tech/api/china/" + provinceCode;
+            Log.i("***", "queryCities: "+address);
             queryFromServer(address, "city");
         }
     }
@@ -152,6 +160,7 @@ public class chooseAreaFragment extends Fragment {
             int provinceCode = selectedProvince.getProvinceCode();
             int cityCode = selectedCity.getCityCode();
             String address = "http://guolin.tech/api/china/" + provinceCode + "/" + cityCode;
+            Log.i("***", "queryCountries: "+address);
             queryFromServer(address, "country");
         }
     }
