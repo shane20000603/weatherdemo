@@ -6,6 +6,8 @@ import com.google.gson.Gson;
 import com.weatherdemo.android.db.City;
 import com.weatherdemo.android.db.Country;
 import com.weatherdemo.android.db.Province;
+import com.weatherdemo.android.gson.AQI;
+import com.weatherdemo.android.gson.CurrentWeather;
 import com.weatherdemo.android.gson.Weather;
 
 import org.json.JSONArray;
@@ -85,6 +87,22 @@ public class Utility {
     }
 
     /**
+     * parse current weather
+     * @param response
+     * @return
+     */
+    public static CurrentWeather handleCurrentWeatherResponse(String response){
+        try {
+            JSONObject jsonObject = new JSONObject(response);
+            String currentWeatherContent = jsonObject.toString();
+            return new Gson().fromJson(currentWeatherContent,CurrentWeather.class);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
      * parse the return json into weather object
      */
     public static Weather handleWeatherResponse(String response){
@@ -92,6 +110,20 @@ public class Utility {
             JSONObject jsonObject = new JSONObject(response);
             String weatherContent = jsonObject.toString();
             return new Gson().fromJson(weatherContent,Weather.class);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     *
+     */
+    public static AQI handleAQIResponse(String response){
+        try{
+            JSONObject jsonObject = new JSONObject(response);
+            String AQIContent = jsonObject.toString();
+            return new Gson().fromJson(AQIContent, AQI.class);
         } catch (JSONException e) {
             e.printStackTrace();
         }
