@@ -38,6 +38,8 @@ import okhttp3.Response;
 
 public class chooseAreaFragment extends Fragment {
 
+    public static final String TAG = "****ChooseAreaFragment";
+
     public static final int LEVEL_PROVINCE = 0;
     public static final int LEVEL_CITY = 1;
     public static final int LEVEL_COUNTRY = 2;
@@ -61,6 +63,7 @@ public class chooseAreaFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        Log.i(TAG, "onCreateView: ");
         View view = inflater.inflate(R.layout.fragment_choose_area, container, false);
         titleText = view.findViewById(R.id.title_text);
         backButton = view.findViewById(R.id.back_button);
@@ -72,6 +75,7 @@ public class chooseAreaFragment extends Fragment {
 
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        Log.i(TAG, "onActivityCreated: ");
         super.onActivityCreated(savedInstanceState);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -84,11 +88,20 @@ public class chooseAreaFragment extends Fragment {
                     queryCountries();
                 } else if (currentLevel == LEVEL_COUNTRY){
                     String weatherId = countryList.get(position).getWeatherId();
-                    Intent intent = new Intent(getActivity(),WeatherActivity.class);
-                    intent.putExtra("weather_id",weatherId.substring(2));
-                    intent.putExtra("countryName",countryList.get(position).getCountryName());
-                    startActivity(intent);
-                    getActivity().finish();
+                    String countryName = countryList.get(position).getCountryName();
+                    if(getActivity() instanceof MainActivity){
+                        Intent intent = new Intent(getActivity(),WeatherActivity.class);
+                        intent.putExtra("weather_id",weatherId.substring(2));
+                        intent.putExtra("countryName",countryName);
+                        startActivity(intent);
+                        getActivity().finish();
+                    }else if(getActivity() instanceof WeatherActivity){
+                        WeatherActivity activity = (WeatherActivity) getActivity();
+                        activity.drawerLayout.closeDrawers();
+                        activity.swipeRefresh.setRefreshing(true);
+                        activity.resetCountry(countryName,weatherId);
+                        activity.swipeRefresh.setRefreshing(false);
+                    }
                 }
             }
         });

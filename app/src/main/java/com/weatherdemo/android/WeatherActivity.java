@@ -1,18 +1,27 @@
 package com.weatherdemo.android;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
 import com.weatherdemo.android.gson.AQI;
 import com.weatherdemo.android.gson.CurrentWeather;
 import com.weatherdemo.android.gson.Daily;
@@ -28,6 +37,8 @@ import okhttp3.Response;
 
 public class WeatherActivity extends AppCompatActivity {
 
+    private static final String TAG = "***WeatherActivity";
+
     private ScrollView weatherLayout;
     private TextView titleCity;
     private TextView titleUpdateTime;
@@ -36,13 +47,26 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView aqiText;
     private TextView pmText;
     private LinearLayout forecastLayout;
+    private ImageView bingPicImg;
+    public SwipeRefreshLayout swipeRefresh;
+    public DrawerLayout drawerLayout;
+    private Button navButton;
+
+    private String weatherId;
+    private String countryName;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.i(TAG, "onCreate: ");
         super.onCreate(savedInstanceState);
+        //set transparent
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
         setContentView(R.layout.activity_weather);
         //bind the view
+        bingPicImg = findViewById(R.id.bing_pic_img);
         weatherLayout = findViewById(R.id.weather_layout);
         titleCity = findViewById(R.id.title_city);
         titleUpdateTime = findViewById(R.id.title_update_time);
@@ -51,23 +75,125 @@ public class WeatherActivity extends AppCompatActivity {
         forecastLayout = findViewById(R.id.forecast_layout);
         aqiText = findViewById(R.id.aqi_text);
         pmText = findViewById(R.id.pm_text);
-        //start cache
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        String weatherString = prefs.getString("weather", null);
+        swipeRefresh = findViewById(R.id.swipe_fresh);
+        swipeRefresh.setColorSchemeResources(R.color.design_default_color_primary);
+        drawerLayout = findViewById(R.id.drawer_layout);
+        navButton = findViewById(R.id.nav_button);
+        navButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                drawerLayout.openDrawer(GravityCompat.START);
+            }
+        });
 
-        if (weatherString != null) {
-            //read cache
-            Weather weather = Utility.handleWeatherResponse(weatherString);
-            showWeatherInfo(weather);
-        } else {
-            //query weather when no cache
-            String weatherId = getIntent().getStringExtra("weather_id");
-            weatherLayout.setVisibility(View.INVISIBLE);
-            showPresentWeather(weatherId);
-            requestWeather(weatherId);
-            requestAQI(weatherId);
-            weatherLayout.setVisibility(View.VISIBLE);
+        //start cache
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
+        //get 3 basic info
+        String currentWeatherResponseCache = prefs.getString("current_weather_response",null);
+        String aqiResponseCache = prefs.getString("aqi_response",null);
+        String weatherResponseCache = prefs.getString("weather", null);
+        Log.i(TAG, "onCreate: cwr "+currentWeatherResponseCache);
+        Log.i(TAG, "onCreate: ar "+aqiResponseCache);
+        Log.i(TAG, "onCreate: wr "+weatherResponseCache);
+
+
+        String bingPic = prefs.getString("bing_pic",null);
+        weatherId = prefs.getString("weather_id",null);
+        countryName = prefs.getString("countryName",null);
+        Log.i(TAG, "onCreate: cn "+countryName);
+        Log.i(TAG, "onCreate: wid "+weatherId);
+
+        if(bingPic != null) Glide.with(this).load(bingPic).into(bingPicImg);
+        else {
+            loadBingPic();
         }
+
+        if (weatherResponseCache != null && currentWeatherResponseCache != null && aqiResponseCache != null && countryName != null) {
+            Log.i(TAG, "onCreate: cache");
+            //read cache
+            Log.i(TAG, "onCreate: "+"read cache,weatherId = "+weatherId);
+            Log.i(TAG, "onCreate: "+"read cache,countryName = "+countryName);
+
+            showTitleName(countryName);
+            Weather weather = Utility.handleWeatherResponse(weatherResponseCache);
+            AQI aqi = Utility.handleAQIResponse(aqiResponseCache);
+            CurrentWeather currentWeather = Utility.handleCurrentWeatherResponse(currentWeatherResponseCache);
+            showCacheInfo(weather,aqi,currentWeather);
+        } else {
+            Log.i(TAG, "onCreate: no cache");
+            //query weather when no cache
+            weatherId = getIntent().getStringExtra("weather_id");
+            countryName = getIntent().getStringExtra("countryName");
+            SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+            editor.putString("weather_id",weatherId);
+            editor.putString("countryName",countryName);
+            editor.apply();
+            showTitleName(countryName);
+            queryAndShowWeatherInfo(weatherId);
+        }
+
+        swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                titleCity.setText(countryName);
+                queryAndShowWeatherInfo(weatherId);
+                stopRefresh();
+            }
+        });
+    }
+
+
+    public void resetCountry(String countryName,String weatherId){
+        this.countryName = countryName;
+        this.weatherId = weatherId;
+        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+        editor.putString("countryName",countryName);
+        editor.putString("weather_id",weatherId);
+        editor.apply();
+        showTitleName(countryName);
+        queryAndShowWeatherInfo(weatherId);
+    }
+    private void queryAndShowWeatherInfo(String weatherId){
+        weatherLayout.setVisibility(View.INVISIBLE);
+        loadBingPic();
+        showPresentWeather(weatherId);
+        requestWeather(weatherId);
+        requestAQI(weatherId);
+        weatherLayout.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * stop flag
+     */
+    private void stopRefresh() {
+        swipeRefresh.setRefreshing(false);
+    }
+
+    /**
+     * load background pic
+     */
+    private void loadBingPic() {
+        String requestBingPic = "http://guolin.tech/api/bing_pic";
+        HttpUtil.sendOkHttpRequest(requestBingPic, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String bingPic = response.body().string();
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                editor.putString("bing_pic",bingPic);
+                editor.apply();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Glide.with(WeatherActivity.this).load(bingPic).into(bingPicImg);
+                    }
+                });
+            }
+        });
     }
 
     /**
@@ -76,7 +202,7 @@ public class WeatherActivity extends AppCompatActivity {
      */
     private void requestAQI(final String weatherId) {
         String AQIUrl = "https://devapi.qweather.com/v7/air/now?location=" + weatherId + "&key=0de86a5ebdde49719b8a809d4cafacbe";
-        Log.i("***", "requestAQI: "+AQIUrl);
+        Log.i(TAG, "requestAQI: "+AQIUrl);
         HttpUtil.sendOkHttpRequest(AQIUrl, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -93,6 +219,9 @@ public class WeatherActivity extends AppCompatActivity {
             public void onResponse(Call call, Response response) throws IOException {
                 String responseText = response.body().string();
                 AQI aqi = Utility.handleAQIResponse(responseText);
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                editor.putString("aqi_response",responseText);
+                editor.apply();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -162,12 +291,15 @@ public class WeatherActivity extends AppCompatActivity {
             public void onResponse(Call call, Response response) throws IOException {
                 final String responseText = response.body().string();
                 CurrentWeather currentWeather = Utility.handleCurrentWeatherResponse(responseText);
+                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                editor.putString("current_weather_response",responseText);
+                editor.apply();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        assert currentWeather != null;
                         degreeText.setText(currentWeather.now.temp+"℃");
                         titleUpdateTime.setText(currentWeather.updateTime.substring(11,16));
+                        weatherInfoText.setText(currentWeather.now.text);
                     }
                 });
             }
@@ -175,7 +307,6 @@ public class WeatherActivity extends AppCompatActivity {
     }
 
     private void showWeatherInfo(Weather weather) {
-        titleCity.setText(getIntent().getStringExtra("countryName"));
         forecastLayout.removeAllViews();
         for (Daily daily : weather.daily) {
             View view = LayoutInflater.from(this).inflate(R.layout.forecast_item,forecastLayout,false);
@@ -189,5 +320,28 @@ public class WeatherActivity extends AppCompatActivity {
             minText.setText(daily.tempMin);
             forecastLayout.addView(view);
         }
+    }
+
+    private void showCacheInfo(Weather weather,AQI aqi,CurrentWeather currentWeather){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                showWeatherInfo(weather);
+                aqiText.setText(aqi.AQINow.aqi);
+                pmText.setText(aqi.AQINow.pm2p5);
+                degreeText.setText(currentWeather.now.temp+"℃");
+                titleUpdateTime.setText(currentWeather.updateTime.substring(11,16));
+                weatherInfoText.setText(currentWeather.now.text);
+            }
+        });
+    }
+
+    private void showTitleName(String countryName){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                titleCity.setText(countryName);
+            }
+        });
     }
 }
