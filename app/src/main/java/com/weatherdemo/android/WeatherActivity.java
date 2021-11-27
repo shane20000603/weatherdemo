@@ -5,13 +5,12 @@ import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -26,6 +25,7 @@ import com.weatherdemo.android.gson.AQI;
 import com.weatherdemo.android.gson.CurrentWeather;
 import com.weatherdemo.android.gson.Daily;
 import com.weatherdemo.android.gson.Weather;
+import com.weatherdemo.android.service.AutoUpdateService;
 import com.weatherdemo.android.util.HttpUtil;
 import com.weatherdemo.android.util.Utility;
 
@@ -113,6 +113,7 @@ public class WeatherActivity extends AppCompatActivity {
             //read cache
             Log.i(TAG, "onCreate: "+"read cache,weatherId = "+weatherId);
             Log.i(TAG, "onCreate: "+"read cache,countryName = "+countryName);
+            Log.i(TAG, "onCreate: "+"read cache,weatherResponse = "+weatherResponseCache);
 
             showTitleName(countryName);
             Weather weather = Utility.handleWeatherResponse(weatherResponseCache);
@@ -130,6 +131,8 @@ public class WeatherActivity extends AppCompatActivity {
             editor.apply();
             showTitleName(countryName);
             queryAndShowWeatherInfo(weatherId);
+            Intent intent = new Intent(this, AutoUpdateService.class);
+            startService(intent);
         }
 
         swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -137,11 +140,10 @@ public class WeatherActivity extends AppCompatActivity {
             public void onRefresh() {
                 titleCity.setText(countryName);
                 queryAndShowWeatherInfo(weatherId);
-                stopRefresh();
+                swipeRefresh.setRefreshing(false);
             }
         });
     }
-
 
     public void resetCountry(String countryName,String weatherId){
         this.countryName = countryName;
@@ -153,21 +155,20 @@ public class WeatherActivity extends AppCompatActivity {
         showTitleName(countryName);
         queryAndShowWeatherInfo(weatherId);
     }
+
+    /**
+     * show all weather info by weather id
+     * @param weatherId
+     */
     private void queryAndShowWeatherInfo(String weatherId){
         weatherLayout.setVisibility(View.INVISIBLE);
         loadBingPic();
-        showPresentWeather(weatherId);
+        requestCurrentWeather(weatherId);
         requestWeather(weatherId);
         requestAQI(weatherId);
         weatherLayout.setVisibility(View.VISIBLE);
     }
 
-    /**
-     * stop flag
-     */
-    private void stopRefresh() {
-        swipeRefresh.setRefreshing(false);
-    }
 
     /**
      * load background pic
@@ -201,7 +202,7 @@ public class WeatherActivity extends AppCompatActivity {
      * @param weatherId
      */
     private void requestAQI(final String weatherId) {
-        String AQIUrl = "https://devapi.qweather.com/v7/air/now?location=" + weatherId + "&key=0de86a5ebdde49719b8a809d4cafacbe";
+        String AQIUrl = "https://devapi.qweather.com/v7/air/now?location=" + weatherId + "&key=" + Utility.key;
         Log.i(TAG, "requestAQI: "+AQIUrl);
         HttpUtil.sendOkHttpRequest(AQIUrl, new Callback() {
             @Override
@@ -239,7 +240,8 @@ public class WeatherActivity extends AppCompatActivity {
      * @param weatherId
      */
     private void requestWeather(final String weatherId) {
-        String weatherUrl = "https://devapi.qweather.com/v7/weather/7d?location=" + weatherId + "&key=0de86a5ebdde49719b8a809d4cafacbe";
+        String weatherUrl = "https://devapi.qweather.com/v7/weather/7d?location=" + weatherId + "&key=" + Utility.key;
+        Log.i(TAG, "requestWeather: "+weatherUrl);
         HttpUtil.sendOkHttpRequest(weatherUrl, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -273,8 +275,9 @@ public class WeatherActivity extends AppCompatActivity {
         });
     }
 
-    private void showPresentWeather(final String weatherId){
-        String currentWeatherUrl = "https://devapi.qweather.com/v7/weather/now?location=" + weatherId + "&key=0de86a5ebdde49719b8a809d4cafacbe";
+    private void requestCurrentWeather(final String weatherId){
+        String currentWeatherUrl = "https://devapi.qweather.com/v7/weather/now?location=" + weatherId + "&key=" + Utility.key;
+        Log.i(TAG, "requestCurrentWeather: "+currentWeatherUrl);
         HttpUtil.sendOkHttpRequest(currentWeatherUrl, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -323,6 +326,8 @@ public class WeatherActivity extends AppCompatActivity {
     }
 
     private void showCacheInfo(Weather weather,AQI aqi,CurrentWeather currentWeather){
+        Intent intent = new Intent(this, AutoUpdateService.class);
+        startService(intent);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {

@@ -16,6 +16,8 @@ import org.json.JSONObject;
 
 public class Utility {
 
+    public static final String key = "0de86a5ebdde49719b8a809d4cafacbe";
+
     /**
     parse and handle the province data from server api
      */
