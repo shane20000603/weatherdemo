@@ -5,6 +5,7 @@ import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -87,7 +88,7 @@ public class WeatherActivity extends AppCompatActivity {
         });
 
         //start cache
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this);
+        SharedPreferences prefs = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS);
         //get 3 basic info
         String currentWeatherResponseCache = prefs.getString("current_weather_response",null);
         String aqiResponseCache = prefs.getString("aqi_response",null);
@@ -125,7 +126,7 @@ public class WeatherActivity extends AppCompatActivity {
             //query weather when no cache
             weatherId = getIntent().getStringExtra("weather_id");
             countryName = getIntent().getStringExtra("countryName");
-            SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+            SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
             editor.putString("weather_id",weatherId);
             editor.putString("countryName",countryName);
             editor.apply();
@@ -148,7 +149,7 @@ public class WeatherActivity extends AppCompatActivity {
     public void resetCountry(String countryName,String weatherId){
         this.countryName = countryName;
         this.weatherId = weatherId;
-        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+        SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
         editor.putString("countryName",countryName);
         editor.putString("weather_id",weatherId);
         editor.apply();
@@ -184,7 +185,7 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 final String bingPic = response.body().string();
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                 editor.putString("bing_pic",bingPic);
                 editor.apply();
                 runOnUiThread(new Runnable() {
@@ -220,7 +221,7 @@ public class WeatherActivity extends AppCompatActivity {
             public void onResponse(Call call, Response response) throws IOException {
                 String responseText = response.body().string();
                 AQI aqi = Utility.handleAQIResponse(responseText);
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                 editor.putString("aqi_response",responseText);
                 editor.apply();
                 runOnUiThread(new Runnable() {
@@ -262,7 +263,7 @@ public class WeatherActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         if (weather != null && "200".equals(weather.code)) {
-                            SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                            SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                             editor.putString("weather", responseText);
                             editor.apply();
                             showWeatherInfo(weather);
@@ -294,7 +295,7 @@ public class WeatherActivity extends AppCompatActivity {
             public void onResponse(Call call, Response response) throws IOException {
                 final String responseText = response.body().string();
                 CurrentWeather currentWeather = Utility.handleCurrentWeatherResponse(responseText);
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(WeatherActivity.this).edit();
+                SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                 editor.putString("current_weather_response",responseText);
                 editor.apply();
                 runOnUiThread(new Runnable() {

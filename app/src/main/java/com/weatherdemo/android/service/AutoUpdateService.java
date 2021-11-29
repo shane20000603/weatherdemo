@@ -3,6 +3,7 @@ package com.weatherdemo.android.service;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.IBinder;
@@ -40,7 +41,7 @@ public class AutoUpdateService extends Service {
         updateWeather();
         updateBingPic();
         AlarmManager manager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        int an8Hour = 10 * 1000;
+        int an8Hour = 2 * 10 * 1000;
         long triggerAtTime = SystemClock.elapsedRealtime() + an8Hour;
         Intent i = new Intent(this,AutoUpdateService.class);
         PendingIntent pi = PendingIntent.getService(this,0,i,0);
@@ -60,7 +61,7 @@ public class AutoUpdateService extends Service {
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
-                SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(AutoUpdateService.this).edit();
+                SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                 editor.putString("bing_pic",response.body().string());
                 editor.apply();
             }
@@ -69,14 +70,13 @@ public class AutoUpdateService extends Service {
 
     private void updateWeather() {
         Log.i(TAG, "updateWeather: started");
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences prefs = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS);
         String countryName = prefs.getString("countryName",null);
         String weatherId = prefs.getString("weather_id",null);
         String weather = prefs.getString("weather", null);
         String aqi = prefs.getString("aqi_response",null);
         String currentWeather = prefs.getString("current_weather_response",null);
         if (countryName != null && weatherId != null && weather != null && aqi != null && currentWeather != null){
-            SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
             String weatherUrl = "https://devapi.qweather.com/v7/weather/7d?location=" + weatherId + "&key=" + Utility.key;
             String currentWeatherUrl = "https://devapi.qweather.com/v7/weather/now?location=" + weatherId + "&key=" + Utility.key;
             String AQIUrl = "https://devapi.qweather.com/v7/air/now?location=" + weatherId + "&key=" + Utility.key;
@@ -93,7 +93,9 @@ public class AutoUpdateService extends Service {
                     Log.i(TAG, "onResponse: "+ responseText);
                     Weather weatherResponse = Utility.handleWeatherResponse(responseText);
                     if( weatherResponse != null && weatherResponse.code.equals("200") ){
+                        SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                         editor.putString("weather", responseText);
+                        editor.apply();
                     }
                 }
             });
@@ -109,7 +111,9 @@ public class AutoUpdateService extends Service {
                     CurrentWeather currentWeatherResponse = Utility.handleCurrentWeatherResponse(responseText);
                     Log.i(TAG, "onResponse: "+ responseText);
                     if( currentWeatherResponse != null && currentWeatherResponse.code.equals("200") ){
+                        SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                         editor.putString("current_weather_response", responseText);
+                        editor.apply();
                     }
                 }
             });
@@ -125,11 +129,12 @@ public class AutoUpdateService extends Service {
                     AQI aqiResponse = Utility.handleAQIResponse(responseText);
                     Log.i(TAG, "onResponse: "+responseText);
                     if( aqiResponse != null && aqiResponse.code.equals("200") ){
+                        SharedPreferences.Editor editor = getSharedPreferences("cache",Context.MODE_MULTI_PROCESS).edit();
                         editor.putString("aqi_response", responseText);
+                        editor.apply();
                     }
                 }
             });
-            editor.apply();
         }
     }
 }
